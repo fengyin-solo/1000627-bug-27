@@ -70,7 +70,7 @@ import { request } from '@/api/client'
 type Row = Record<string, string | number | null>
 
 const ENDPOINT = '/api/instrument'
-const columns = ["设备编号", "设备名称", "设备型号", "量程范围", "校准周期", "校准到期日", "责任人", "设备状态"]
+const columns = ["设备编号", "设备名称", "设备型号", "量程范围", "校准周期", "校准到期日", "最近校准方式", "最近校准结果", "责任人", "设备状态"]
 const actions = ["提交校准", "确认正常", "停用设备"]
 const statuses = ["待校准", "在运正常", "故障停机", "已停用"]
 const stats = [{"label": "在运设备", "value": 0}, {"label": "待校准设备", "value": 0}, {"label": "故障设备", "value": 0}]
@@ -101,8 +101,9 @@ async function runAction(action: string, row: Row) {
       method: 'POST',
       body: JSON.stringify({ action }),
     })
-    if (!response.ok) {
-      throw new Error('仪器设备动作未生效，请稍后重试')
+    const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.message || '仪器设备动作未生效，请稍后重试')
     }
     await reload()
   } catch (error) {

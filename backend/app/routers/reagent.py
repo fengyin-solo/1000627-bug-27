@@ -13,13 +13,13 @@ router = APIRouter(prefix="/api/reagent", tags=["试剂耗材"])
 service = ReagentService()
 
 LIST_FIELDS = ["物料编号", "物料名称", "规格纯度", "批号", "结存数量", "有效期至", "保管人员", "物料状态"]
-STATUSES = ["正常可用", "临近有效期", "已冻结", "已耗尽"]
+STATUSES = ["正常可用", "临近有效期", "已冻结", "已耗尽", "已使用"]
 
 
 @router.get("", response_model=PageResult[dict])
 def list_entries(
     keyword: str | None = Query(default=None, description="按物料编号检索"),
-    status: str | None = Query(default=None, description="正常可用、临近有效期、已冻结、已耗尽"),
+    status: str | None = Query(default=None, description="正常可用、临近有效期、已冻结、已耗尽、已使用"),
     page: int = 1,
     size: int = 20,
 ) -> PageResult[dict]:

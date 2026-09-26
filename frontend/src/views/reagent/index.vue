@@ -72,7 +72,7 @@ type Row = Record<string, string | number | null>
 const ENDPOINT = '/api/reagent'
 const columns = ["物料编号", "物料名称", "规格纯度", "批号", "结存数量", "有效期至", "保管人员", "物料状态"]
 const actions = ["冻结物料", "解冻物料", "登记耗尽"]
-const statuses = ["正常可用", "临近有效期", "已冻结", "已耗尽"]
+const statuses = ["正常可用", "临近有效期", "已冻结", "已耗尽", "已使用"]
 const stats = [{"label": "可用物料", "value": 0}, {"label": "临期物料", "value": 0}, {"label": "已冻结物料", "value": 0}]
 
 const rows = ref<Row[]>([])

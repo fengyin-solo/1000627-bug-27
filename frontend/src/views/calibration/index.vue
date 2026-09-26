@@ -16,9 +16,7 @@
         <span class="stat-label">{{ item.label }}</span>
         <strong class="stat-value">{{ item.value }}</strong>
       </article>
-    </div>
-
-    <form class="filter-bar" @submit.prevent="reload">
+    </div>    <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
         <input v-model="filters[field]" :placeholder="`按${field}检索`" />
@@ -73,7 +71,11 @@ const ENDPOINT = '/api/calibration'
 const columns = ["校准编号", "关联设备", "校准方式", "标准物质", "校准结果", "校准日期", "下次校准日", "校准状态"]
 const actions = ["开始校准", "判定合格", "判定不合格"]
 const statuses = ["待校准", "校准中", "已合格", "不合格"]
-const stats = [{"label": "待校准记录", "value": 0}, {"label": "校准合格率", "value": 0}, {"label": "不合格设备", "value": 0}]
+const stats = ref([
+  { label: "待校准记录", value: '—' },
+  { label: "校准合格率", value: '—' },
+  { label: "不合格设备", value: '—' },
+])
 
 const rows = ref<Row[]>([])
 const total = ref(0)
@@ -101,12 +103,34 @@ async function runAction(action: string, row: Row) {
       method: 'POST',
       body: JSON.stringify({ action }),
     })
-    if (!response.ok) {
-      throw new Error('校准记录动作未生效，请稍后重试')
+    const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.message || '校准记录动作未生效，请稍后重试')
     }
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '校准记录操作失败'
+  }
+}
+
+async function reloadStats() {
+  try {
+    const response = await request(`${ENDPOINT}/stats/summary`)
+    if (!response.ok) {
+      return
+    }
+    const payload = await response.json() as {
+      pending?: number
+      qualified_rate?: number
+      failed_devices?: number
+    }
+    stats.value = [
+      { label: "待校准记录", value: String(payload.pending ?? 0) },
+      { label: "校准合格率", value: `${payload.qualified_rate ?? 0}%` },
+      { label: "不合格设备", value: String(payload.failed_devices ?? 0) },
+    ]
+  } catch {
+    // 统计读不出来不阻塞列表，卡片保持占位符。
   }
 }
 
@@ -121,6 +145,7 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    await reloadStats()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '校准记录列表读取失败'
   }

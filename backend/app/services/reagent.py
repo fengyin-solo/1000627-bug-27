@@ -7,7 +7,9 @@ from app.store import store
 
 MODULE = "reagent"
 REQUIRED_FIELDS = ["物料编号", "物料名称", "规格纯度"]
-STATUS_ORDER = ["正常可用", "临近有效期", "已冻结", "已耗尽"]
+STATUS_ORDER = ["正常可用", "临近有效期", "已冻结", "已耗尽", "已使用"]
+# 已耗尽与已使用都是终态，不再计入待处理；动作规则沿用原有三项，校准服务直接落库「已使用」。
+TERMINAL_STATUSES = {"已耗尽", "已使用"}
 ACTION_RULES = {"冻结物料": "已冻结", "解冻物料": "正常可用", "登记耗尽": "已耗尽"}
 NEGATIVE_ACTIONS = []
 
@@ -56,6 +58,6 @@ class ReagentService:
         if target not in STATUS_ORDER:
             return None, f"目标状态「{target}」不在允许的状态序列里"
         entry["status"] = target
-        entry["pending"] = target != STATUS_ORDER[-1]
+        entry["pending"] = target not in TERMINAL_STATUSES
         entry["abnormal"] = action in NEGATIVE_ACTIONS
         return entry, f"试剂物料已{action}"
