@@ -36,7 +36,13 @@
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td v-for="column in columns" :key="column">
+            <template v-if="column === '标准物质状态'">
+              <span v-if="row['标准物质']" :class="['tag', row[column] === '已使用' ? 'tag-pass' : 'tag-pending']">{{ row[column] ?? '未使用' }}</span>
+              <template v-else>—</template>
+            </template>
+            <template v-else>{{ row[column] ?? '—' }}</template>
+          </td>
           <td class="row-actions">
             <button
               v-for="action in actions"
@@ -68,18 +74,24 @@ import { onMounted, ref } from 'vue'
 import { request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
+type StatItem = { label: string; value: number | string }
 
 const ENDPOINT = '/api/calibration'
-const columns = ["校准编号", "关联设备", "校准方式", "标准物质", "校准结果", "校准日期", "下次校准日", "校准状态"]
+const columns = ["校准编号", "关联设备", "校准方式", "标准物质", "标准物质状态", "校准结果", "校准日期", "下次校准日", "校准状态"]
 const actions = ["开始校准", "判定合格", "判定不合格"]
 const statuses = ["待校准", "校准中", "已合格", "不合格"]
-const stats = [{"label": "待校准记录", "value": 0}, {"label": "校准合格率", "value": 0}, {"label": "不合格设备", "value": 0}]
+const statLabels = ["待校准记录", "校准合格率", "不合格设备"]
 
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const stats = ref<StatItem[]>([
+  { label: "待校准记录", value: 0 },
+  { label: "校准合格率", value: '0.0%' },
+  { label: "不合格设备", value: 0 },
+])
 
 function resetFilters() {
   filters.value = {}
@@ -101,12 +113,31 @@ async function runAction(action: string, row: Row) {
       method: 'POST',
       body: JSON.stringify({ action }),
     })
-    if (!response.ok) {
-      throw new Error('校准记录动作未生效，请稍后重试')
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || !payload?.ok) {
+      throw new Error(payload?.message ?? '校准记录动作未生效，请稍后重试')
     }
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '校准记录操作失败'
+  }
+}
+
+async function reloadStats() {
+  try {
+    const response = await request(`${ENDPOINT}/stats`)
+    if (!response.ok) {
+      throw new Error('校准统计读取失败')
+    }
+    const payload = await response.json()
+    stats.value = statLabels.map((label) => {
+      if (label === '校准合格率') {
+        return { label, value: `${Number(payload[label] ?? 0).toFixed(1)}%` }
+      }
+      return { label, value: Number(payload[label] ?? 0) }
+    })
+  } catch {
+    // 统计卡片不阻断列表，沿用默认 0 值。
   }
 }
 
@@ -121,6 +152,7 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    void reloadStats()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '校准记录列表读取失败'
   }
